@@ -3,6 +3,7 @@ from filterpy.kalman.quaternionUKF import QuaternionSigmaPoint, QuaternionUKF
 from filterpy.kalman.sigma_points import JulierSigmaPoints
 import numpy as np
 from scipy.linalg import cholesky
+from scipy.spatial.transform import Rotation as R
 
 
 def test_quaternion_sigma_points():
@@ -30,8 +31,49 @@ def test_quaternion_sigma_points():
     print(f"sigmas Quaternion: {sigmas}")
     print(f"sigmas: {sigmas_normal}")
 
+
 def fx(x, dt):
     return x
+
+
+def mean_fn(sigmas, Wm):
+
+    sigmas = R.from_quat(sigmas)
+
+    avg_quat = sigmas.mean(Wm)
+
+    return avg_quat
+
+def test_mean_fn():
+    print("=== Testing Quaternion Averaging Function ===")
+
+    euler_angles = np.array([[0,0,0],
+                            [10,0,0],
+                            [-10,0,0]])
+    
+    quats = R.from_euler('xyz', euler_angles, degrees=True).as_quat()
+
+    Wm = np.array([0.25, 0.25, 0.5])
+
+    avg_quat = mean_fn(quats, Wm)
+
+    avg_euler = avg_quat.as_euler('xyz', degrees=True)
+
+    print("\nInput Euler Angles (degrees):")
+    print(euler_angles)
+
+    print("\nConverted Quaternions:")
+    print(quats)
+
+    print("\nWeights:")
+    print(Wm)
+
+    print("\nComputed Mean Quaternion:")
+    print(avg_quat.as_quat())
+
+    print("\nMean Rotation in Euler Angles (degrees):")
+    print(avg_euler)
+
 
 def test_quaternion_ukf():
     x = np.array([1.0, 2.0, 3.0])
@@ -68,3 +110,5 @@ def test_quaternion_ukf():
 test_quaternion_ukf()
 
 test_quaternion_sigma_points()
+
+test_mean_fn()

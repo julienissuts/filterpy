@@ -104,10 +104,13 @@ def unscented_transform(sigmas, Wm, Wc, noise_cov=None,
             x = np.dot(Wm, sigmas)    # dot = \Sigma^n_1 (W[k]*Xi[k])
         else:
             x = mean_fn(sigmas, Wm)
+            # check if return of mean_fn returns multiple values
+            if isinstance(x, tuple):
+                x, *other_values = x    
     except:
         print(sigmas)
         raise
-
+    
 
     # new covariance is the sum of the outer product of the residuals
     # times the weights
