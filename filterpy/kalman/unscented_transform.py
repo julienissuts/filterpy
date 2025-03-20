@@ -122,8 +122,8 @@ def unscented_transform(sigmas, Wm, Wc, noise_cov=None,
     else:
         P = np.zeros((n, n))
         for k in range(kmax):
-            y = residual_fn(sigmas[k], x)
-            P += Wc[k] * np.outer(y, y)
+            y = residual_fn(sigmas[k], x) # for quaternion ukf: y = W_i'
+            P += Wc[k] * np.outer(y, y) # for quaternion ukf: P_k^- += W_i' W_i'^T
 
     if noise_cov is not None:
         P += noise_cov

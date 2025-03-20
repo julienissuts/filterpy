@@ -42,9 +42,13 @@ def mean_fn(sigmas, Wm):
 
     avg_quat = sigmas.mean(Wm)
 
-    error_quats = sigmas * avg_quat.inv()
+    return avg_quat
 
-    return avg_quat, error_quats
+def residual_fn(a,b): # residual for quaternions
+    a = R.from_quat(a)
+    b = R.from_quat(b)
+    diff = a * b.inv() #a and b need to be quaternions
+    return diff
 
 
 def test_mean_fn():
@@ -58,12 +62,16 @@ def test_mean_fn():
 
     Wm = np.array([0.333, 0.333, 0.333])
 
-    avg_quat, error_quats = mean_fn(quats, Wm)
+    avg_quat = mean_fn(quats, Wm) # calc avg of sigmas 
+
+    print(f"avg_quat: {avg_quat.as_quat()}")
+
+    error_quats = residual_fn(quats, avg_quat.as_quat()) # calc error quaternions ei
+
+    error_rotvecs = error_quats.as_rotvec() # transform ei to rot vecs 
 
     avg_euler = avg_quat.as_euler('xyz', degrees=True)
-
-    error_rotvecs = error_quats.as_rotvec()
-
+    
     print("\nInput Euler Angles (degrees):")
     print(euler_angles)
 
