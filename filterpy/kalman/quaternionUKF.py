@@ -1,5 +1,5 @@
 from filterpy.kalman import UKF
-from filterpy.kalman import unscented_transform
+from filterpy.kalman.quat_unscented_transform import quat_unscented_transform
 import numpy as np
 import sys
 
@@ -82,17 +82,19 @@ class QuaternionUKF():
             dt = self._dt
 
         if UT is None:
-            UT = unscented_transform
+            UT = quat_unscented_transform
 
         # calculate sigma points for given mean and covariance
         self.compute_process_sigmas(dt, fx, **fx_args)
 
         #and pass sigmas through the unscented transform to compute prior
-        # self.x, self.P = UT(self.sigmas_f, self.Wm, self.Wc, self.Q,
-        #                     self.x_mean, self.residual_x)
+        self.x, self.P = UT(self.sigmas_f, self.Wm, self.Wc, self.Q,
+                            self.x_mean, self.residual_x)
 
+        print(f"x : {self.x}")
+        print(f"P : {self.P}")
         # update sigma points to reflect the new variance of the points
-        # self.sigmas_f = self.points_fn.sigma_points(self.x, self.P)
+        self.sigmas_f = self.points_fn.sigma_points(self.x, self.P)
 
         # save prior
         self.x_prior = np.copy(self.x)

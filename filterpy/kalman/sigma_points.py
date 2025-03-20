@@ -330,7 +330,6 @@ class JulierSigmaPoints(object):
         if self.n != np.size(x):
             raise ValueError("expected size(x) {}, but size is {}".format(
                 self.n, np.size(x)))
-
         n = self.n
 
         if np.isscalar(x):
@@ -381,6 +380,183 @@ class JulierSigmaPoints(object):
             pretty_str('subtract', self.subtract),
             pretty_str('sqrt', self.sqrt)
             ])
+
+
+
+class QuaternionJulierSigmaPoints(object):
+    """
+    Generates sigma points and weights according to Simon J. Julier
+    and Jeffery K. Uhlmann's original paper[1]. It parametizes the sigma
+    points using kappa.
+
+    Parameters
+    ----------
+
+    n : int
+        Dimensionality of the state. 2n+1 weights will be generated.
+
+    kappa : float, default=0.
+        Scaling factor that can reduce high order errors. kappa=0 gives
+        the standard unscented filter. According to [Julier], if you set
+        kappa to 3-dim_x for a Gaussian x you will minimize the fourth
+        order errors in x and P.
+
+    sqrt_method : function(ndarray), default=scipy.linalg.cholesky
+        Defines how we compute the square root of a matrix, which has
+        no unique answer. Cholesky is the default choice due to its
+        speed. Typically your alternative choice will be
+        scipy.linalg.sqrtm. Different choices affect how the sigma points
+        are arranged relative to the eigenvectors of the covariance matrix.
+        Usually this will not matter to you; if so the default cholesky()
+        yields maximal performance. As of van der Merwe's dissertation of
+        2004 [6] this was not a well reseached area so I have no advice
+        to give you.
+
+        If your method returns a triangular matrix it must be upper
+        triangular. Do not use numpy.linalg.cholesky - for historical
+        reasons it returns a lower triangular matrix. The SciPy version
+        does the right thing.
+
+    subtract : callable (x, y), optional
+        Function that computes the difference between x and y.
+        You will have to supply this if your state variable cannot support
+        subtraction, such as angles (359-1 degreees is 2, not 358). x and y
+
+    Attributes
+    ----------
+
+    Wm : np.array
+        weight for each sigma point for the mean
+
+    Wc : np.array
+        weight for each sigma point for the covariance
+
+    References
+    ----------
+
+    .. [1] Julier, Simon J.; Uhlmann, Jeffrey "A New Extension of the Kalman
+        Filter to Nonlinear Systems". Proc. SPIE 3068, Signal Processing,
+        Sensor Fusion, and Target Recognition VI, 182 (July 28, 1997)
+   """
+
+    def __init__(self, n, kappa=0., sqrt_method=None, subtract=None):
+
+        self.n = n
+        self.kappa = kappa
+        if sqrt_method is None:
+            self.sqrt = cholesky
+        else:
+            self.sqrt = sqrt_method
+
+        if subtract is None:
+            self.subtract = np.subtract
+        else:
+            self.subtract = subtract
+
+        self._compute_weights()
+
+
+    def num_sigmas(self):
+        """ Number of sigma points for each variable in the state x"""
+        return 2*self.n + 1
+
+
+    def sigma_points(self, x, P):
+        r""" Computes the sigma points for an unscented Kalman filter
+        given the mean (x) and covariance(P) of the filter.
+        kappa is an arbitrary constant. Returns sigma points.
+
+        Works with both scalar and array inputs:
+        sigma_points (5, 9, 2) # mean 5, covariance 9
+        sigma_points ([5, 2], 9*eye(2), 2) # means 5 and 2, covariance 9I
+
+        Parameters
+        ----------
+
+        x : array-like object of the means of length n
+            Can be a scalar if 1D.
+            examples: 1, [1,2], np.array([1,2])
+
+        P : scalar, or np.array
+           Covariance of the filter. If scalar, is treated as eye(n)*P.
+
+        kappa : float
+            Scaling factor.
+
+        Returns
+        -------
+
+        sigmas : np.array, of size (2n+1, n)
+            2D array of sigma points :math:`\chi`. Each column contains all of
+            the sigmas for one dimension in the problem space. They
+            are ordered as:
+
+            .. math::
+                :nowrap:
+
+                \begin{eqnarray}
+                  \chi[0]    = &x \\
+                  \chi[1..n] = &x + [\sqrt{(n+\kappa)P}]_k \\
+                  \chi[n+1..2n] = &x - [\sqrt{(n+\kappa)P}]_k
+                \end{eqnarray}
+
+        """
+
+        if self.n not in [np.size(x), np.size(x) - 1]:
+            raise ValueError("expected size(x) {} or {}, but size is {}".format(
+            self.n, self.n + 1, np.size(x)))
+
+        n = self.n
+
+        if np.isscalar(x):
+            x = np.asarray([x])
+
+        if np.isscalar(P):
+            P = np.eye(n) * P
+        else:
+            P = np.atleast_2d(P)
+
+        sigmas = np.zeros((2*n+1, n+1)) # n+1 dimension because its quaternions
+
+        # implements U'*U = (n+kappa)*P. Returns lower triangular matrix.
+        # Take transpose so we can access with U[i]
+        
+        U = self.sqrt((n + self.kappa) * P)
+
+        sigmas[0] = x
+        print(f"U's are:{U}")
+        for k in range(n):
+            # pylint: disable=bad-whitespace
+            sigmas[k+1]   = self.subtract(x, -U[k])
+            sigmas[n+k+1] = self.subtract(x, U[k])
+        return sigmas
+
+
+    def _compute_weights(self):
+        """ Computes the weights for the unscented Kalman filter. In this
+        formulation the weights for the mean and covariance are the same.
+        """
+
+        n = self.n
+        k = self.kappa
+
+        self.Wm = np.full(2*n+1, .5 / (n + k))
+        self.Wm[0] = k / (n+k)
+        self.Wc = self.Wm
+
+
+    def __repr__(self):
+
+        return '\n'.join([
+            'JulierSigmaPoints object',
+            pretty_str('n', self.n),
+            pretty_str('kappa', self.kappa),
+            pretty_str('Wm', self.Wm),
+            pretty_str('Wc', self.Wc),
+            pretty_str('subtract', self.subtract),
+            pretty_str('sqrt', self.sqrt)
+            ])
+
 
 
 class SimplexSigmaPoints(object):
