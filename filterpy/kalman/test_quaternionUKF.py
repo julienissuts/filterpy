@@ -51,7 +51,7 @@ def residual_fn(a,b): # residual for quaternions
     return diff
 
 
-def test_mean_fn():
+def test_mean_and_residual_fn():
     print("=== Testing Quaternion Averaging Function ===")
 
     euler_angles = np.array([[0,0,0],
@@ -127,4 +127,4 @@ test_quaternion_ukf()
 
 test_quaternion_sigma_points()
 
-test_mean_fn()
+test_mean_and_residual_fn()
