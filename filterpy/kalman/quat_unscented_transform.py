@@ -112,7 +112,7 @@ def quat_unscented_transform(sigmas, Wm, Wc, noise_cov=None,
         print(sigmas)
         raise
     
-    print(f"mean x: {x}")
+    print(f"mean x: {x.as_quat()}")
     # new covariance is the sum of the outer product of the residuals
     # times the weights
 
@@ -123,7 +123,7 @@ def quat_unscented_transform(sigmas, Wm, Wc, noise_cov=None,
     else:
         P = np.zeros((n, n))
         for k in range(kmax):
-            y = residual_fn(sigmas[k], x) # for quaternion ukf: y = W_i'
+            y = residual_fn(sigmas[k], x.as_quat()) # for quaternion ukf: y = W_i'
             P += Wc[k] * np.outer(y, y) # for quaternion ukf: P_k^- += W_i' W_i'^T
 
     return (x, P)

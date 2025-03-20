@@ -91,10 +91,10 @@ class QuaternionUKF():
         self.x, self.P = UT(self.sigmas_f, self.Wm, self.Wc, self.Q,
                             self.x_mean, self.residual_x)
 
-        print(f"x : {self.x}")
+        print(f"x : {self.x.as_quat()}")
         print(f"P : {self.P}")
         # update sigma points to reflect the new variance of the points
-        self.sigmas_f = self.points_fn.sigma_points(self.x, self.P)
+        self.sigmas_f = self.points_fn.sigma_points(self.x.as_quat(), self.P)
 
         # save prior
         self.x_prior = np.copy(self.x)

@@ -124,7 +124,7 @@ def test_quaternion_ukf():
 
     sigmapoints = QuaternionJulierSigmaPoints(n-1, kappa=0.1, sqrt_method=cholesky, subtract=sigma_point_subtract) # subtract 1 to n because we have 1 dof less than quaternion
 
-    quatukf = QuaternionUKF(dim_x=n, dim_z=n, points=sigmapoints, dt=1, fx=fx, hx=None, residual_x=residual_x)
+    quatukf = QuaternionUKF(dim_x=n, dim_z=n, points=sigmapoints, dt=1, fx=fx, hx=None, residual_x=residual_x, x_mean_fn=mean_fn)
 
     quatukf.x = x
     quatukf.P = P
@@ -134,7 +134,7 @@ def test_quaternion_ukf():
 
     print(f"sigmas new: {quatukf.sigmas_f}")
     print(f"xnew: {quatukf.x}")
-    print(f"xnew: {R.from_quat(quatukf.x).as_euler('xyz', degrees=True)}")
+    print(f"xnew: {quatukf.x.as_euler('xyz', degrees=True)}")
     print(f"Pnew: {quatukf.P}")
 
 
