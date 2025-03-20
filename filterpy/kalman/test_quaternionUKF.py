@@ -42,7 +42,10 @@ def mean_fn(sigmas, Wm):
 
     avg_quat = sigmas.mean(Wm)
 
-    return avg_quat
+    error_quats = sigmas * avg_quat.inv()
+
+    return avg_quat, error_quats
+
 
 def test_mean_fn():
     print("=== Testing Quaternion Averaging Function ===")
@@ -53,11 +56,13 @@ def test_mean_fn():
     
     quats = R.from_euler('xyz', euler_angles, degrees=True).as_quat()
 
-    Wm = np.array([0.25, 0.25, 0.5])
+    Wm = np.array([0.333, 0.333, 0.333])
 
-    avg_quat = mean_fn(quats, Wm)
+    avg_quat, error_quats = mean_fn(quats, Wm)
 
     avg_euler = avg_quat.as_euler('xyz', degrees=True)
+
+    error_rotvecs = error_quats.as_rotvec()
 
     print("\nInput Euler Angles (degrees):")
     print(euler_angles)
@@ -73,6 +78,9 @@ def test_mean_fn():
 
     print("\nMean Rotation in Euler Angles (degrees):")
     print(avg_euler)
+
+    print("\nError rotation vectors:")
+    print(error_rotvecs)
 
 
 def test_quaternion_ukf():
