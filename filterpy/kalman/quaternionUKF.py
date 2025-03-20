@@ -1,6 +1,7 @@
 from filterpy.kalman import UKF
 from filterpy.kalman import unscented_transform
 import numpy as np
+import sys
 
 class QuaternionUKF():
     def __init__(self, dim_x, dim_z, dt, hx, fx, points,
@@ -9,12 +10,12 @@ class QuaternionUKF():
                  residual_z=None,
                  state_add=None):
 
-        self.x = zeros(dim_x)
-        self.P = eye(dim_x)
+        self.x = np.zeros(dim_x)
+        self.P = np.eye(dim_x)
         self.x_prior = np.copy(self.x)
         self.P_prior = np.copy(self.P)
-        self.Q = eye(dim_x)
-        self.R = eye(dim_z)
+        self.Q = np.eye(dim_x)
+        self.R = np.eye(dim_z)
         self._dim_x = dim_x
         self._dim_z = dim_z
         self.points_fn = points
@@ -26,7 +27,7 @@ class QuaternionUKF():
         self.z_mean = z_mean_fn
 
         # Only computed only if requested via property
-        self._log_likelihood = log(sys.float_info.min)
+        self._log_likelihood = np.log(sys.float_info.min)
         self._likelihood = sys.float_info.min
         self._mahalanobis = None
 
@@ -87,11 +88,11 @@ class QuaternionUKF():
         self.compute_process_sigmas(dt, fx, **fx_args)
 
         #and pass sigmas through the unscented transform to compute prior
-        self.x, self.P = UT(self.sigmas_f, self.Wm, self.Wc, self.Q,
-                            self.x_mean, self.residual_x)
+        # self.x, self.P = UT(self.sigmas_f, self.Wm, self.Wc, self.Q,
+        #                     self.x_mean, self.residual_x)
 
         # update sigma points to reflect the new variance of the points
-        self.sigmas_f = self.points_fn.sigma_points(self.x, self.P)
+        # self.sigmas_f = self.points_fn.sigma_points(self.x, self.P)
 
         # save prior
         self.x_prior = np.copy(self.x)
@@ -110,10 +111,11 @@ class QuaternionUKF():
             fx = self.fx
 
         # calculate sigma points for given mean and covariance
-        sigmas = self.points_fn.sigma_points(self.x, self.P)
+        sigmas = self.points_fn.sigma_points(self.x, self.P + self.Q)
 
         for i, s in enumerate(sigmas):
             self.sigmas_f[i] = fx(s, dt, **fx_args)
+
 
 
 from filterpy.kalman.sigma_points import JulierSigmaPoints
@@ -137,7 +139,6 @@ class QuaternionSigmaPoint():
             self.subtract = subtract
 
         self._compute_weights() # Juliers sigma weights
-
 
     def sigma_points(self, x, P, Q):
         # create sigma points
@@ -168,7 +169,6 @@ class QuaternionSigmaPoint():
             sigmas[k+1]   = self.subtract(x, -W[k]) #sigma pts from 1 to n
             sigmas[n+k+1] = self.subtract(x, W[k]) # sigma points from n+1 to 2n+1
         return sigmas
-
 
     def _compute_weights(self):
         """ Computes the weights for the unscented Kalman filter. In this
