@@ -112,7 +112,6 @@ def quat_unscented_transform(sigmas, Wm, Wc, noise_cov=None,
         print(sigmas)
         raise
     
-    print(f"mean x: {x.as_quat()}")
     # new covariance is the sum of the outer product of the residuals
     # times the weights
 
