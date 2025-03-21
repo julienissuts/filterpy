@@ -2,6 +2,9 @@ from filterpy.kalman import UKF
 from filterpy.kalman.quat_unscented_transform import quat_unscented_transform
 import numpy as np
 import sys
+from copy import deepcopy
+from scipy.spatial.transform import Rotation
+
 
 class QuaternionUKF():
     def __init__(self, dim_x, dim_z, dt, hx, fx, points,
@@ -88,7 +91,7 @@ class QuaternionUKF():
         self.compute_process_sigmas(dt, fx, **fx_args)
 
         #and pass sigmas through the unscented transform to compute prior
-        self.x, self.P = UT(self.sigmas_f, self.Wm, self.Wc, self.Q,
+        self.x, self.P = UT(self.sigmas_f, self.Wm, self.Wc, None, # set Q to None because its not added in qukf
                             self.x_mean, self.residual_x)
 
         print(f"x : {self.x.as_quat()}")
@@ -117,6 +120,99 @@ class QuaternionUKF():
 
         for i, s in enumerate(sigmas):
             self.sigmas_f[i] = fx(s, dt, **fx_args)
+    
+    def update(self, z, R=None, UT=None, hx=None, **hx_args):
+        """
+        Update the UKF with the given measurements. On return,
+        self.x and self.P contain the new mean and covariance of the filter.
+
+        Parameters
+        ----------
+
+        z : numpy.array of shape (dim_z)
+            measurement vector
+
+        R : numpy.array((dim_z, dim_z)), optional
+            Measurement noise. If provided, overrides self.R for
+            this function call.
+
+        UT : function(sigmas, Wm, Wc, noise_cov), optional
+            Optional function to compute the unscented transform for the sigma
+            points passed through hx. Typically the default function will
+            work - you can use x_mean_fn and z_mean_fn to alter the behavior
+            of the unscented transform.
+
+        hx : callable h(x, **hx_args), optional
+            Measurement function. If not provided, the default
+            function passed in during construction will be used.
+
+        **hx_args : keyword argument
+            arguments to be passed into h(x) after x -> h(x, **hx_args)
+        """
+
+        if z is None:
+            self.z = np.array([[None]*self._dim_z]).T
+            self.x_post = self.x.copy()
+            self.P_post = self.P.copy()
+            return
+
+        if hx is None:
+            hx = self.hx
+
+        if UT is None:
+            UT = quat_unscented_transform
+
+        if R is None:
+            R = self.R
+        elif np.isscalar(R):
+            R = np.eye(self._dim_z) * R
+
+        # pass prior sigmas through h(x) to get measurement sigmas
+        # the shape of sigmas_h will vary if the shape of z varies, so
+        # recreate each time
+        sigmas_h = []
+        for s in self.sigmas_f:
+            sigmas_h.append(hx(s, **hx_args))
+
+        self.sigmas_h = np.atleast_2d(sigmas_h)
+
+        # mean and covariance of prediction passed through unscented transform
+        zp, self.S = UT(self.sigmas_h, self.Wm, self.Wc, R, self.z_mean, self.residual_z)
+        self.SI = self.inv(self.S)
+
+        # compute cross variance of the state and the measurements
+        Pxz = self.cross_variance(self.x, zp, self.sigmas_f, self.sigmas_h)
+
+
+        self.K = np.dot(Pxz, self.SI)        # Kalman gain
+        self.y = self.residual_z(z.as_quat(), zp.as_quat())   # residual
+
+        # update Gaussian state estimate (x, P)
+        self.x = self.state_add(self.x, np.dot(self.K, self.y))
+        self.P = self.P - np.dot(self.K, np.dot(self.S, self.K.T))
+
+        # save measurement and posterior state
+        self.z = deepcopy(z)
+        self.x_post = Rotation.from_quat(self.x.as_quat())
+        self.P_post = self.P.copy()
+
+        # set to None to force recompute
+        self._log_likelihood = None
+        self._likelihood = None
+        self._mahalanobis = None
+
+    def cross_variance(self, x, z, sigmas_f, sigmas_h):
+        """
+        Compute cross variance of the state `x` and measurement `z`.
+        """
+
+        Pxz = np.zeros((sigmas_f.shape[1] - 1, sigmas_h.shape[1] - 1)) # make Pxz a dimension smaller than state & measure
+        N = sigmas_f.shape[0]
+        for i in range(N):
+            dx = self.residual_x(sigmas_f[i], x.as_quat())
+            dz = self.residual_z(sigmas_h[i], z.as_quat())
+            Pxz += self.Wc[i] * np.outer(dx, dz)
+        return Pxz
 
 
 

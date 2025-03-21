@@ -125,4 +125,7 @@ def quat_unscented_transform(sigmas, Wm, Wc, noise_cov=None,
             y = residual_fn(sigmas[k], x.as_quat()) # for quaternion ukf: y = W_i'
             P += Wc[k] * np.outer(y, y) # for quaternion ukf: P_k^- += W_i' W_i'^T
 
+    if noise_cov is not None:
+        P+= noise_cov
+
     return (x, P)

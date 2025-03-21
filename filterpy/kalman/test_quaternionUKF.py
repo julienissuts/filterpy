@@ -105,6 +105,16 @@ def residual_x(a,b): #both inputs are quaternions and output is rotvec
     relative_quat = quat_a * quat_b.inv()
     return relative_quat.as_rotvec()
 
+
+def hx(x):
+    return x
+
+def state_addition(a,b):
+    # a = R.from_quat(a)
+    b = R.from_rotvec(b)
+    result = b * a
+    return result
+
 def test_quaternion_ukf():
     x = np.array([0, 0, 0, 1])
 
@@ -124,18 +134,30 @@ def test_quaternion_ukf():
 
     sigmapoints = QuaternionJulierSigmaPoints(n-1, kappa=0.1, sqrt_method=cholesky, subtract=sigma_point_subtract) # subtract 1 to n because we have 1 dof less than quaternion
 
-    quatukf = QuaternionUKF(dim_x=n, dim_z=n, points=sigmapoints, dt=1, fx=fx, hx=None, residual_x=residual_x, x_mean_fn=mean_fn)
+    quatukf = QuaternionUKF(dim_x=n, dim_z=n, points=sigmapoints, dt=1, fx=fx, hx=hx, residual_x=residual_x, x_mean_fn=mean_fn, residual_z=residual_x, z_mean_fn=mean_fn, state_add=state_addition)
 
     quatukf.x = x
     quatukf.P = P
     quatukf.Q = Q
+    
+    quatukf.R = Q*1000
 
     quatukf.predict(dt=1)
-
     print(f"sigmas new: {quatukf.sigmas_f}")
     print(f"xnew: {quatukf.x}")
     print(f"xnew: {quatukf.x.as_euler('xyz', degrees=True)}")
     print(f"Pnew: {quatukf.P}")
+
+    z = R.from_quat([0, 0, 0, 1])
+
+    quatukf.update(z=z)
+    print(f"x updated: {quatukf.x.as_euler('xyz', degrees=True)}")
+    print(f"P updated: {quatukf.P}")
+    print(f"S updated: {quatukf.S}")
+    print(f"y : {R.from_rotvec(quatukf.y).as_euler('xyz', degrees=True)}")
+
+
+    
 
 
 test_quaternion_ukf()

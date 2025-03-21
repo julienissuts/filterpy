@@ -101,12 +101,9 @@ def unscented_transform(sigmas, Wm, Wc, noise_cov=None,
     try:
         if mean_fn is None:
             # new mean is just the sum of the sigmas * weight
-            x = np.dot(Wm, sigmas)    # dot = \Sigma^n_1 (W[k]*Xi[k])
+            x = np.dot(Wm, sigmas)   
         else:
             x = mean_fn(sigmas, Wm)
-            # check if return of mean_fn returns multiple values
-            if isinstance(x, tuple):
-                x, *other_values = x    
     except:
         print(sigmas)
         raise
@@ -122,8 +119,8 @@ def unscented_transform(sigmas, Wm, Wc, noise_cov=None,
     else:
         P = np.zeros((n, n))
         for k in range(kmax):
-            y = residual_fn(sigmas[k], x) # for quaternion ukf: y = W_i'
-            P += Wc[k] * np.outer(y, y) # for quaternion ukf: P_k^- += W_i' W_i'^T
+            y = residual_fn(sigmas[k], x) 
+            P += Wc[k] * np.outer(y, y)
 
     if noise_cov is not None:
         P += noise_cov
